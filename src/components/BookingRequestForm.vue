@@ -127,9 +127,9 @@ function submitAnother() {
 <template>
   <div>
     <div v-if="submitted" class="card-block p-6 sm:p-8 text-center">
-      <h2 class="font-display text-4xl uppercase tracking-wide">Request Submitted!</h2>
+      <h2 class="font-display text-4xl uppercase tracking-wide">Hold Submitted!</h2>
       <p class="mt-3 text-white/90 font-medium">
-        Your booking request has been recorded. Staff will review it informally —
+        Your booking hold has been recorded. Staff will review it informally —
         you'll hear back via email or group chat.
       </p>
       <button
@@ -143,8 +143,8 @@ function submitAnother() {
 
     <div v-else class="space-y-6">
       <p class="text-sm text-stone-600 font-medium panel p-4 sm:p-5">
-        Submit a booking request for staff review. Use the scrollable calendar to check open dates as you complete the form.
-        Monday–Wednesday are reserved for house events and cannot be booked for live music.
+        Submit a booking hold for staff review. Use the scrollable calendar to check open dates as you complete the form.
+        Multiple holds can exist on the same date. Monday–Wednesday are reserved for house events and cannot be booked for live music.
       </p>
 
       <div class="grid lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] gap-6 items-start">
@@ -241,13 +241,13 @@ function submitAnother() {
             v-else-if="dateConflict"
             class="rounded-xl border-2 border-berkeley-yellow bg-berkeley-yellow/40 px-4 py-3 text-sm"
           >
-            <p class="font-heading font-bold uppercase text-stone-900">This date already has show(s):</p>
+            <p class="font-heading font-bold uppercase text-stone-900">This date already has hold(s) or show(s):</p>
             <ul class="mt-1 list-disc list-inside font-medium">
               <li v-for="show in dateConflict" :key="show.id">
-                {{ formatShowTitle(show) }} ({{ show.status }})
+                {{ formatShowTitle(show) }} ({{ show.status === 'held' ? 'hold' : show.status }})
               </li>
             </ul>
-            <p class="mt-2 text-stone-700">You can still submit — staff will review.</p>
+            <p class="mt-2 text-stone-700">You can still submit another hold — staff will review.</p>
           </div>
 
           <div>
@@ -286,7 +286,7 @@ function submitAnother() {
 
           <ContributorNameInput id="contributor" v-model="form.contributor" />
 
-          <button type="submit" class="btn-primary" :disabled="!canSubmit">Submit Booking Request</button>
+          <button type="submit" class="btn-primary" :disabled="!canSubmit">Submit Hold</button>
         </form>
       </div>
     </div>

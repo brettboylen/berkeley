@@ -1,5 +1,6 @@
 <script setup>
 import AppLogo from './AppLogo.vue'
+import { VENUE } from '../data/venue'
 </script>
 
 <template>
@@ -14,12 +15,12 @@ import AppLogo from './AppLogo.vue'
             428 S. Dawson · Raleigh, NC
           </p>
           <a
-            href="https://instagram.com/berkeley_cafe"
+            :href="VENUE.instagramUrl"
             target="_blank"
             rel="noopener noreferrer"
             class="inline-block mt-1 text-berkeley-green-light hover:text-white transition-colors font-heading text-sm uppercase tracking-wide"
           >
-            @berkeley_cafe
+            {{ VENUE.instagramFollowLabel }}
           </a>
         </div>
 

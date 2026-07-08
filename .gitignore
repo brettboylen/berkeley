@@ -4,3 +4,12 @@ dist
 *.local
 .env
 .env.*
+
+# OpenTofu / Terraform
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/crash.log
+infra/site/backend.hcl
+infra/bootstrap/terraform.tfstate
+infra/bootstrap/terraform.tfstate.backup

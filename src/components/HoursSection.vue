@@ -1,4 +1,6 @@
 <script setup>
+import { VENUE } from '../data/venue'
+
 const hours = [
   {
     days: 'Monday – Thursday',
@@ -66,20 +68,20 @@ const hours = [
 
       <div class="flex flex-wrap justify-center gap-3 mt-4">
         <a
-          href="https://instagram.com/berkeley_cafe"
+          :href="VENUE.instagramUrl"
           target="_blank"
           rel="noopener noreferrer"
           class="btn-secondary text-sm !px-5 !py-2"
         >
-          IG: @berkeley_cafe
+          {{ VENUE.instagramFollowLabel }}
         </a>
         <a
-          href="https://facebook.com"
+          :href="VENUE.facebookUrl"
           target="_blank"
           rel="noopener noreferrer"
           class="btn-secondary text-sm !px-5 !py-2"
         >
-          FB: Berkeley Cafe
+          {{ VENUE.facebookLabel }}
         </a>
       </div>
     </div>

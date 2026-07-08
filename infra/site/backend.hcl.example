@@ -1,0 +1,5 @@
+bucket         = "berkeley-music-tfstate-ACCOUNT_ID"
+key            = "prototype/site.tfstate"
+region         = "us-east-1"
+dynamodb_table = "berkeley-music-tflock"
+encrypt        = true

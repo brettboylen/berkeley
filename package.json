@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bootstrap:aws": "bash scripts/bootstrap-tf.sh",
+    "deploy:aws": "bash scripts/deploy-aws.sh"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",

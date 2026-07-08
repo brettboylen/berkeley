@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { initialShows, initialRequests } from '../data/constants'
+import { initialShows } from '../data/constants'
 import {
   isDateBlockedForMusic,
   recurringCalendarEntry,
@@ -9,14 +9,23 @@ import { useContributors } from './useContributors'
 import { normalizeOpeners } from '../utils/openers'
 
 const shows = ref(structuredClone(initialShows))
-const requests = ref(structuredClone(initialRequests))
 
-let nextShowId = 11
-let nextRequestId = 10
+let nextShowId = 14
 
 const PUBLIC_STATUSES = ['confirmed', 'promoted']
 const CONTRIBUTOR_SHOW_STATUSES = ['confirmed', 'promoted', 'held']
 const CONTRIBUTOR_EDITABLE_STATUSES = ['confirmed', 'promoted', 'held']
+
+function defaultPromotion() {
+  return {
+    flierReceived: false,
+    facebookEvent: false,
+    earlySocial: false,
+    dayOfPost: false,
+    printed: false,
+    displayed: false,
+  }
+}
 
 export function useShows() {
   const publicShows = computed(() =>
@@ -25,10 +34,6 @@ export function useShows() {
 
   const activeShows = computed(() =>
     shows.value.filter((s) => s.status !== 'canceled')
-  )
-
-  const pendingRequests = computed(() =>
-    requests.value.filter((r) => r.reviewStatus === 'pending')
   )
 
   const heldShows = computed(() =>
@@ -57,12 +62,8 @@ export function useShows() {
       .filter((s) => s.date === dateStr && CONTRIBUTOR_SHOW_STATUSES.includes(s.status))
       .map((s) => ({ kind: 'show', item: s }))
 
-    const dateRequests = requests.value
-      .filter((r) => r.date === dateStr && r.reviewStatus === 'pending')
-      .map((r) => ({ kind: 'request', item: r }))
-
     const recurring = recurringCalendarEntry(dateStr)
-    const items = [...dateShows, ...dateRequests]
+    const items = [...dateShows]
     if (recurring) items.unshift(recurring)
     return items
   }
@@ -90,10 +91,6 @@ export function useShows() {
         s.status === 'confirmed' &&
         !s.flier
     )
-  }
-
-  function getContributorRequests(contributor) {
-    return requests.value.filter((r) => r.contributor === contributor)
   }
 
   function getContributorShows(contributor) {
@@ -215,6 +212,9 @@ export function useShows() {
     const show = shows.value.find((s) => s.id === showId)
     if (!show || show.status !== 'held') return false
     show.status = 'confirmed'
+    if (!show.promotion) {
+      show.promotion = defaultPromotion()
+    }
     return true
   }
 
@@ -228,57 +228,27 @@ export function useShows() {
   function addBookingRequest(form) {
     if (isDateBlockedForMusic(form.date)) return null
 
-    const request = {
-      id: `r${nextRequestId++}`,
-      ...form,
-      contributor: form.contributor?.trim() ?? '',
-      openers: normalizeOpeners(form.openers),
-      openersPending: !!form.openersPending,
-      psychedelicSunday: isSunday(form.date) && !!form.psychedelicSunday,
-      submittedAt: new Date().toISOString(),
-      reviewStatus: 'pending',
-    }
-    requests.value.unshift(request)
-    useContributors().registerContributor(request.contributor)
-    return request
-  }
-
-  function approveRequest(requestId) {
-    const req = requests.value.find((r) => r.id === requestId)
-    if (!req) return
-
     const show = {
       id: String(nextShowId++),
-      headliner: req.headliner,
-      openers: req.openers,
-      openersPending: !!req.openersPending,
-      date: req.date,
-      time: req.time,
-      description: req.description,
-      genre: req.genre,
-      actType: req.actType,
-      contributor: req.contributor,
-      status: 'confirmed',
-      psychedelicSunday: !!req.psychedelicSunday,
+      headliner: form.headliner,
+      openers: normalizeOpeners(form.openers),
+      openersPending: !!form.openersPending,
+      date: form.date,
+      time: form.time,
+      description: form.description,
+      genre: form.genre,
+      actType: form.actType,
+      contributor: form.contributor?.trim() ?? '',
+      status: 'held',
+      psychedelicSunday: isSunday(form.date) && !!form.psychedelicSunday,
       internalNotes: '',
+      submittedAt: new Date().toISOString(),
       flier: null,
-      promotion: {
-        flierReceived: false,
-        facebookEvent: false,
-        earlySocial: false,
-        dayOfPost: false,
-        printed: false,
-        displayed: false,
-      },
+      promotion: defaultPromotion(),
     }
-    shows.value.push(show)
-    req.reviewStatus = 'approved'
+    shows.value.unshift(show)
+    useContributors().registerContributor(show.contributor)
     return show
-  }
-
-  function rejectRequest(requestId) {
-    const req = requests.value.find((r) => r.id === requestId)
-    if (req) req.reviewStatus = 'rejected'
   }
 
   function uploadFlier(showId, file, uploadedBy = 'Contributor') {
@@ -306,10 +276,8 @@ export function useShows() {
 
   return {
     shows,
-    requests,
     publicShows,
     activeShows,
-    pendingRequests,
     heldShows,
     getPublicShowsForDate,
     getPublicItemsForDate,
@@ -319,7 +287,6 @@ export function useShows() {
     isDateBlockedForMusic,
     getConfirmedShowsForMonth,
     getConfirmedShowsForContributor,
-    getContributorRequests,
     getContributorShows,
     getContributorManageableShows,
     getContributorPromotableShows,
@@ -332,8 +299,6 @@ export function useShows() {
     confirmHeldShow,
     releaseHeldShow,
     addBookingRequest,
-    approveRequest,
-    rejectRequest,
     uploadFlier,
   }
 }

@@ -33,30 +33,71 @@ Output goes to `dist/` — static files ready for S3.
 
 Data is in-memory (mock). Refreshing the page resets to seed data. This keeps the prototype simple until Google Calendar / Sheets integration is wired up.
 
-## AWS deployment (no custom domain)
+## AWS deployment (OpenTofu + S3/CloudFront)
 
-Works with the default S3 website endpoint or a CloudFront distribution URL.
+The app uses **hash routing** (`#/staff`, `#/contributor`, etc.), so it works as a static site on S3 + CloudFront with no server.
 
-### Option A — S3 static website
+Infrastructure is managed with **[OpenTofu](https://opentofu.org/)** and remote state in **S3 + DynamoDB** (for locking).
+
+### Prerequisites
+
+- [AWS CLI](https://aws.amazon.com/cli/) configured (`aws sts get-caller-identity`)
+- [OpenTofu](https://opentofu.org/docs/intro/install/) (`tofu` on your PATH)
+
+### First-time setup (bootstrap state backend)
+
+Run once per AWS account. Creates the state bucket and lock table, then writes `infra/site/backend.hcl`:
 
 ```bash
-npm run build
-aws s3 sync dist/ s3://YOUR-BUCKET-NAME --delete
+npm run bootstrap:aws
 ```
 
-Enable static website hosting on the bucket. Set **index document** to `index.html` and **error document** to `index.html` (hash routing handles paths client-side).
+Optional overrides:
 
-### Option B — S3 + CloudFront (recommended)
+```bash
+PROJECT_NAME=berkeley-music AWS_REGION=us-east-1 npm run bootstrap:aws
+```
 
-1. Upload `dist/` to a private S3 bucket.
-2. Create a CloudFront distribution with the S3 origin.
-3. Set **Default root object** to `index.html`.
-4. Add a custom error response: HTTP 403 → `/index.html` with 200 (covers direct `#/` access patterns).
-5. Access via the `*.cloudfront.net` URL until your domain is ready.
+### Deploy the prototype
 
-### When the domain is ready
+```bash
+npm run deploy:aws
+```
 
-Point DNS at CloudFront, add the domain as an alternate domain name (CNAME), and attach an ACM certificate. No app code changes needed.
+This will:
+
+1. Run `npm run build`
+2. `tofu apply` in `infra/site` (S3 bucket + CloudFront)
+3. Upload `dist/` to the bucket
+4. Invalidate the CloudFront cache
+
+When finished, the script prints the public **HTTPS** URL (a `*.cloudfront.net` address).
+
+Override the site resource prefix or region:
+
+```bash
+PROJECT_NAME=berkeley-music-prototype AWS_REGION=us-east-1 npm run deploy:aws
+```
+
+Use `terraform` instead of `tofu` if preferred:
+
+```bash
+TF=terraform npm run deploy:aws
+```
+
+### Infrastructure layout
+
+```
+infra/
+  bootstrap/   # One-time: S3 state bucket + DynamoDB lock table (local state)
+  site/        # Site stack: S3 assets bucket + CloudFront (remote state)
+```
+
+When a custom domain is ready, add it to the CloudFront distribution in `infra/site/main.tf` with an ACM certificate. No app code changes needed.
+
+### Prototype passwords
+
+Staff and contributor views use the shared prototype password: `password`
 
 ## Future integration points
 

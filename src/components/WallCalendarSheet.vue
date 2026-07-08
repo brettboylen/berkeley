@@ -151,7 +151,7 @@ const patternStyle = computed(() => {
         <p class="text-[14px] leading-snug text-white font-semibold">
           {{ VENUE.addressShort }}
         </p>
-        <p class="text-[14px] mt-1 text-white/95 font-semibold">{{ VENUE.instagram }}</p>
+        <p class="text-[14px] mt-1 text-white/95 font-semibold">{{ VENUE.instagramFollowLabel }}</p>
       </div>
     </aside>
 
@@ -196,7 +196,6 @@ const patternStyle = computed(() => {
           <div
             v-else
             class="min-h-[96px] rounded-lg border-[3px] flex flex-col p-1.5 min-w-0 overflow-hidden"
-            :class="day.isToday ? 'ring-2 ring-stone-900 ring-offset-1' : ''"
             :style="cellStyle(day, sheet.theme)"
           >
             <span
@@ -251,28 +250,31 @@ const patternStyle = computed(() => {
         </template>
       </div>
 
+      <!-- Open-to-book list: August (and other busy months) may crowd the grid — omit if it overlaps -->
       <div
         v-if="sheet.openDates.length"
-        class="mt-2 rounded-lg px-3 py-2.5 shrink-0"
+        class="mt-2 rounded-lg px-3 py-2 shrink-0"
         :style="{ background: 'rgba(255,255,255,0.85)', border: `2px dashed ${theme.accent}` }"
       >
         <p
-          class="uppercase tracking-wide mb-2"
-          :style="{ fontFamily: 'Oswald, sans-serif', fontSize: '14px', fontWeight: 700, color: '#1C1917' }"
+          class="uppercase tracking-wide mb-0.5"
+          :style="{ fontFamily: 'Oswald, sans-serif', fontSize: '12px', fontWeight: 700, color: '#1C1917' }"
         >
           Open to book
         </p>
-        <ul class="space-y-1" style="font-size: 13px; line-height: 1.4; color: #1C1917; font-weight: 600;">
-          <li v-for="dateStr in sheet.openDates" :key="dateStr">
-            {{
-              new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
-                weekday: 'long',
-                month: 'short',
-                day: 'numeric',
-              })
-            }}
-          </li>
-        </ul>
+        <p style="font-size: 11px; line-height: 1.4; color: #1C1917; font-weight: 600;">
+          {{
+            sheet.openDates
+              .map((d) =>
+                new Date(d + 'T12:00:00').toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                })
+              )
+              .join(' · ')
+          }}
+        </p>
       </div>
 
       <p

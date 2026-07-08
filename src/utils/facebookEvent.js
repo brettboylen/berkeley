@@ -26,7 +26,7 @@ export function buildFacebookEventFields(show) {
   const description = `${show.description}${openerLine}
 
 Live music at ${VENUE.name} — ${VENUE.addressShort}
-Follow ${VENUE.instagram} for updates.`
+Follow ${VENUE.instagramFollowLabel} for updates.`
 
   const location = `${VENUE.name}, ${VENUE.addressShort}`
 

@@ -8,7 +8,7 @@ import HoursSection from '../components/HoursSection.vue'
 import RecurringEventsSection from '../components/RecurringEventsSection.vue'
 import { formatShowTitle } from '../utils/showTitle'
 
-const PAGE_SIZE = 15
+const PAGE_SIZE = 8
 
 const route = useRoute()
 const { publicShows, getPublicItemsForDate } = useShows()

@@ -3,6 +3,7 @@ import { computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppLogo from './components/AppLogo.vue'
 import SiteFooter from './components/SiteFooter.vue'
+import { VENUE } from './data/venue'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,7 +42,7 @@ async function goToShows() {
           <AppLogo variant="nav" />
 
           <p class="hidden md:block font-heading text-xs uppercase tracking-widest text-stone-500">
-            428 S. Dawson · @berkeley_cafe
+            428 S. Dawson · {{ VENUE.instagramLabel }}
           </p>
 
           <nav class="flex gap-1" aria-label="Main navigation">

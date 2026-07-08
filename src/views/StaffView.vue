@@ -10,6 +10,8 @@ import { formatShowTitle } from '../utils/showTitle'
 import { formatOpenersLabel } from '../utils/openers'
 import { downloadIcsFile } from '../utils/calendarExport'
 import StaffWallCalendar from '../components/StaffWallCalendar.vue'
+import { useWallCalendarSettings } from '../composables/useWallCalendarSettings'
+import { isNonStandardShowTime } from '../utils/showTime'
 import {
   getContributorLastActivity,
   isContributorInactive,
@@ -19,16 +21,15 @@ const { isAuthenticated, login, logout } = useStaffAuth()
 const router = useRouter()
 const {
   shows,
-  requests,
   heldShows,
   confirmHeldShow,
   releaseHeldShow,
   updatePromotion,
   updateShowStatus,
-  approveRequest,
-  rejectRequest,
+  updateShowTime,
 } = useShows()
 const { contributors, removeContributor, removeContributors } = useContributors()
+const { standardShowTime, setStandardShowTime } = useWallCalendarSettings()
 
 const password = ref('')
 const loginError = ref('')
@@ -38,10 +39,10 @@ const activeTab = ref('bookings')
 const tabs = [
   { id: 'bookings', label: 'Bookings' },
   { id: 'promotion', label: 'Promotion' },
-  { id: 'shows', label: 'All Shows' },
+  { id: 'shows', label: 'Edit Times/Status' },
   { id: 'contributors', label: 'Contributors' },
   { id: 'facebook', label: 'Facebook Event Kits' },
-  { id: 'export', label: 'Print & Export' },
+  { id: 'export', label: 'Month View PDFs' },
 ]
 
 watch(activeTab, () => {
@@ -54,18 +55,14 @@ const promotableShows = computed(() =>
     .sort((a, b) => a.date.localeCompare(b.date))
 )
 
-const staffPendingRequests = computed(() =>
-  requests.value.filter((r) => r.reviewStatus === 'pending')
-)
-
 const contributorRows = computed(() =>
   contributors.value
     .map((name) => {
-      const lastActivity = getContributorLastActivity(name, shows.value, requests.value)
+      const lastActivity = getContributorLastActivity(name, shows.value)
       return {
         name,
         lastActivity,
-        inactive: isContributorInactive(name, shows.value, requests.value),
+        inactive: isContributorInactive(name, shows.value),
       }
     })
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
@@ -74,6 +71,24 @@ const contributorRows = computed(() =>
 const inactiveContributors = computed(() =>
   contributorRows.value.filter((row) => row.inactive)
 )
+
+const allShowsSorted = computed(() =>
+  [...shows.value].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)
+  )
+)
+
+function handleStandardTimeChange(event) {
+  setStandardShowTime(event.target.value)
+}
+
+function handleShowTimeChange(showId, event) {
+  updateShowTime(showId, event.target.value)
+}
+
+function isShowTimeNonStandard(time) {
+  return isNonStandardShowTime(time, standardShowTime.value)
+}
 
 function handleLogout() {
   logout()
@@ -117,9 +132,9 @@ function handleConfirm(showId) {
 }
 
 function handleRelease(showId) {
-  if (window.confirm('Release this hold? The date will be marked canceled and available for rebooking.')) {
+  if (window.confirm('Release this hold? It will be removed from the bookings list.')) {
     if (releaseHeldShow(showId)) {
-      actionMessage.value = 'Hold released — date marked canceled.'
+      actionMessage.value = 'Hold released.'
     }
   }
 }
@@ -155,7 +170,7 @@ function handleRemoveInactiveContributors() {
   if (!names.length) return
 
   const label = names.length === 1 ? names[0] : `${names.length} contributors`
-  if (!window.confirm(`Remove ${label} from the suggestion list? No booking requests or shows in the last month.`)) {
+  if (!window.confirm(`Remove ${label} from the suggestion list? No holds or shows in the last month.`)) {
     return
   }
 
@@ -170,7 +185,7 @@ function handleRemoveInactiveContributors() {
       <div class="text-center mb-8">
         <h2 class="section-title">Staff View</h2>
         <p class="text-stone-600 mt-3 font-medium leading-relaxed">
-          Confirm held dates, review booking requests, track promotion, export to Google Calendar,
+          Confirm holds, track promotion, export to Google Calendar,
           and open Facebook Event Kits to copy show details into Facebook.
         </p>
       </div>
@@ -205,7 +220,7 @@ function handleRemoveInactiveContributors() {
         <div>
           <h2 class="section-title">Staff View</h2>
           <p class="text-stone-600 mt-2 font-medium max-w-2xl">
-            Confirm held dates, review booking requests, track promotion, and export calendars.
+            Confirm holds, track promotion, and export calendars.
           </p>
         </div>
         <button type="button" class="btn-secondary shrink-0" @click="handleLogout">Sign out</button>
@@ -229,20 +244,23 @@ function handleRemoveInactiveContributors() {
         >
           {{ tab.label }}
           <span
-            v-if="tab.id === 'bookings' && (heldShows.length || staffPendingRequests.length)"
+            v-if="tab.id === 'bookings' && heldShows.length"
             class="ml-1 opacity-90"
           >
-            ({{ heldShows.length + staffPendingRequests.length }})
+            ({{ heldShows.length }})
           </span>
         </button>
       </div>
 
       <section v-if="activeTab === 'bookings'">
-        <div class="mb-10">
-          <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-4">
-            Held Dates
-            <span class="text-base font-heading text-stone-500">({{ heldShows.length }})</span>
-          </h3>
+        <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-2">
+          Holds
+          <span class="text-base font-heading text-stone-500">({{ heldShows.length }})</span>
+        </h3>
+        <p class="text-sm text-stone-600 font-medium mb-6 max-w-2xl">
+          Booking requests and manual holds are the same — confirm a hold to publish it, or release it to remove it.
+          Multiple holds can exist on the same date.
+        </p>
 
         <div v-if="heldShows.length" class="space-y-4">
           <article
@@ -310,64 +328,8 @@ function handleRemoveInactiveContributors() {
         </div>
 
         <p v-else class="panel p-6 text-sm text-stone-600 font-medium">
-          No held dates right now. Use the <strong>All Shows</strong> tab to set a date to <strong>Held</strong>.
-        </p>
-        </div>
-
-        <div v-if="staffPendingRequests.length" class="mt-10">
-          <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-4">
-            Pending Requests
-            <span class="text-base font-heading text-berkeley-red">({{ staffPendingRequests.length }})</span>
-          </h3>
-
-          <div class="space-y-4">
-            <div v-for="req in staffPendingRequests" :key="req.id" class="panel p-5 sm:p-6">
-              <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                <div>
-                  <h4 class="font-display text-2xl uppercase tracking-wide">{{ formatShowTitle(req) }}</h4>
-                  <p v-if="formatOpenersLabel(req)" class="text-sm text-stone-500 font-medium">
-                    {{ formatOpenersLabel(req) }}
-                  </p>
-                  <dl class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                    <div>
-                      <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Date</dt>
-                      <dd class="font-semibold">{{ formatDate(req.date) }} at {{ req.time }}</dd>
-                    </div>
-                    <div>
-                      <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Genre</dt>
-                      <dd class="font-semibold">{{ req.genre }}</dd>
-                    </div>
-                    <div>
-                      <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Act type</dt>
-                      <dd class="font-semibold">{{ req.actType }}</dd>
-                    </div>
-                    <div class="col-span-2">
-                      <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Submitted by</dt>
-                      <dd class="font-semibold">{{ req.contributor }}</dd>
-                    </div>
-                  </dl>
-                  <p class="mt-2 text-sm text-stone-600">{{ req.description }}</p>
-                </div>
-
-                <div class="flex gap-2 shrink-0">
-                  <button type="button" class="btn-secondary !text-sm !px-4 !py-2" @click="approveRequest(req.id)">
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    class="px-4 py-2 rounded-full border-2 border-stone-300 text-stone-700 text-sm font-heading font-bold uppercase hover:bg-stone-50 transition-colors"
-                    @click="rejectRequest(req.id)"
-                  >
-                    Reject
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p v-else class="panel p-6 mt-10 text-sm text-stone-600 font-medium">
-          No pending booking requests.
+          No holds right now. Contributors submit holds via <strong>Request Booking</strong>, or set a date to
+          <strong>Held</strong> in <strong>Edit Times/Status</strong>.
         </p>
       </section>
 
@@ -495,25 +457,60 @@ function handleRemoveInactiveContributors() {
       </section>
 
       <section v-else-if="activeTab === 'shows'">
-        <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-4">All Shows</h3>
+        <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-2">Edit Times/Status</h3>
+        <p class="text-sm text-stone-600 font-medium mb-4 max-w-2xl">
+          Update status and start times for every show. Times in
+          <span class="text-berkeley-red font-bold">red</span>
+          differ from the standard — they sync to the public calendar and wall calendar PDF.
+        </p>
+
+        <div class="panel p-4 bg-white mb-4 max-w-md">
+          <label for="staff-standard-show-time" class="block text-xs font-heading font-bold uppercase tracking-wide text-stone-500 mb-1.5">
+            Standard start time
+          </label>
+          <input
+            id="staff-standard-show-time"
+            type="time"
+            class="input-field max-w-[10rem]"
+            :value="standardShowTime"
+            @change="handleStandardTimeChange"
+          />
+        </div>
+
         <div class="panel overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="bg-stone-900 text-white text-left">
               <tr>
                 <th class="px-4 py-3 font-heading font-bold uppercase tracking-wide text-xs">Show</th>
                 <th class="px-4 py-3 font-heading font-bold uppercase tracking-wide text-xs">Date</th>
+                <th class="px-4 py-3 font-heading font-bold uppercase tracking-wide text-xs">Start time</th>
                 <th class="px-4 py-3 font-heading font-bold uppercase tracking-wide text-xs">Contributor</th>
                 <th class="px-4 py-3 font-heading font-bold uppercase tracking-wide text-xs">Status</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-stone-100">
-              <tr v-for="show in shows" :key="show.id" class="hover:bg-stone-50">
+              <tr v-for="show in allShowsSorted" :key="show.id" class="hover:bg-stone-50">
                 <td class="px-4 py-3">
                   <RouterLink :to="`/show/${show.id}`" class="font-semibold hover:text-berkeley-red">
                     {{ formatShowTitle(show) }}
                   </RouterLink>
                 </td>
-                <td class="px-4 py-3">{{ formatDate(show.date) }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ formatDate(show.date) }}</td>
+                <td class="px-4 py-3">
+                  <input
+                    type="time"
+                    class="input-field !py-1.5 !text-sm max-w-[9.5rem]"
+                    :class="isShowTimeNonStandard(show.time) ? '!text-berkeley-red !font-bold !border-berkeley-red/40' : ''"
+                    :value="show.time"
+                    @change="handleShowTimeChange(show.id, $event)"
+                  />
+                  <span
+                    v-if="isShowTimeNonStandard(show.time)"
+                    class="block mt-1 text-[10px] font-heading uppercase text-berkeley-red font-bold tracking-wide"
+                  >
+                    Non-standard
+                  </span>
+                </td>
                 <td class="px-4 py-3">{{ show.contributor }}</td>
                 <td class="px-4 py-3">
                   <select
@@ -536,7 +533,7 @@ function handleRemoveInactiveContributors() {
         <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-1">Edit Contributors</h3>
         <p class="text-sm text-stone-600 font-medium mb-4 max-w-2xl">
           Manage the name suggestions shown on booking forms. Removing a name cleans the list — contributors can still type any name when submitting.
-          New names are added automatically when someone submits a booking request.
+          New names are added automatically when someone submits a hold.
         </p>
 
         <div
@@ -550,7 +547,7 @@ function handleRemoveInactiveContributors() {
             {{
               inactiveContributors.map((row) => row.name).join(', ')
             }}
-            — no booking requests or shows in the last month.
+            — no holds or shows in the last month.
           </p>
           <button
             type="button"
@@ -599,7 +596,7 @@ function handleRemoveInactiveContributors() {
         </div>
 
         <p v-else class="text-sm text-stone-500 font-medium">
-          No contributors on the suggestion list. Names are added when booking requests are submitted.
+          No contributors on the suggestion list. Names are added when holds are submitted.
         </p>
       </section>
 
@@ -654,7 +651,7 @@ function handleRemoveInactiveContributors() {
         </div>
 
         <p v-else class="text-sm text-stone-500 font-medium">
-          No confirmed or promoted shows yet — confirm a held date or approve a booking request first.
+          No confirmed or promoted shows yet — confirm a hold first.
         </p>
       </section>
 

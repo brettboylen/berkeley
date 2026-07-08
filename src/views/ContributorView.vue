@@ -19,7 +19,6 @@ const { isAuthenticated, login, logout } = useAuth()
 const router = useRouter()
 const route = useRoute()
 const {
-  pendingRequests,
   getContributorItemsForDate,
   getConfirmedShowsForMonth,
   getContributorManageableShows,
@@ -49,10 +48,10 @@ const uploadSuccessReplaced = ref(false)
 
 const tabs = [
   { id: 'calendar', label: 'Calendar' },
-  { id: 'manage', label: 'My Shows' },
-  { id: 'facebook', label: 'Facebook Event Kits' },
   { id: 'request', label: 'Request Booking' },
+  { id: 'manage', label: 'My Shows' },
   { id: 'poster', label: 'Upload / Replace Poster' },
+  { id: 'facebook', label: 'Facebook Event Kits' },
 ]
 
 const monthShows = computed(() =>
@@ -151,7 +150,6 @@ function tryLogin() {
 
 function contributorEntryClass(entry) {
   if (entry.kind === 'recurring') return 'bg-stone-300/70 text-stone-800'
-  if (entry.kind === 'request') return 'bg-stone-200 text-stone-700'
   const show = entry.item
   if (show.psychedelicSunday) return 'bg-sky-100 text-sky-800 hover:bg-sky-200'
   if (show.status === 'held') return 'bg-berkeley-yellow/60 text-stone-800 hover:bg-berkeley-yellow'
@@ -161,9 +159,6 @@ function contributorEntryClass(entry) {
 
 function contributorLabel(entry) {
   if (entry.kind === 'recurring') return entry.item.name
-  if (entry.kind === 'request') {
-    return `${formatShowTitle(entry.item)} (pending)`
-  }
   return formatShowTitle(entry.item)
 }
 
@@ -274,7 +269,7 @@ function canUseFacebookKit(show) {
         <h2 class="section-title">Contributor View</h2>
         <p class="text-stone-600 mt-3 font-medium leading-relaxed">
           This section is for bands and bookers who are directly affiliated with Berkeley Cafe.
-          Review the calendar, submit booking requests, edit confirmed shows, and upload or replace posters.
+          Review the calendar, submit holds, edit confirmed shows, and upload or replace posters.
         </p>
       </div>
 
@@ -350,27 +345,10 @@ function canUseFacebookKit(show) {
         <div class="mt-4 flex flex-wrap gap-4 text-sm font-heading font-semibold uppercase tracking-wide text-stone-600">
           <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-berkeley-green/40"></span> Confirmed</span>
           <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-berkeley-red/30"></span> Promoted</span>
-          <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-berkeley-yellow"></span> Held</span>
+          <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-berkeley-yellow"></span> Hold</span>
           <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-sky-200"></span> Psychedelic Sunday</span>
           <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-stone-300"></span> House event (no music booking)</span>
-          <span class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-stone-200 border border-stone-300"></span> Pending request</span>
         </div>
-
-        <section v-if="pendingRequests.length" class="mt-10">
-          <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-4">All Pending Requests</h3>
-          <div class="space-y-3">
-            <div v-for="req in pendingRequests" :key="req.id" class="panel p-4 flex justify-between gap-3">
-              <div>
-                <h4 class="font-display text-xl uppercase tracking-wide">{{ formatShowTitle(req) }}</h4>
-                <p class="text-sm text-stone-500">{{ formatDate(req.date) }} · {{ req.actType }}</p>
-                <p class="text-sm text-stone-600 font-medium mt-1">
-                  Submitted by: {{ req.contributor }}
-                </p>
-              </div>
-              <span class="font-heading text-xs uppercase font-bold text-stone-500">pending</span>
-            </div>
-          </div>
-        </section>
       </section>
 
       <section v-else-if="activeTab === 'manage'">

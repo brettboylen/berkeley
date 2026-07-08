@@ -44,6 +44,7 @@ Poster upload & replace UX is implemented in the Vue prototype. Backend work bel
 - [x] **`WallCalendarSheet.vue`** — seasonal styling, Berkeley Cafe sidebar, color-coded public shows + open nights
 - [x] **Show times** — per-date time on poster; standard time + per-show staff overrides (`useWallCalendarSettings`, `updateShowTime`)
 - [x] **Download both** — one-click to save two PDFs; print per month
+- [ ] **August layout** — “Open to book” list below the grid can overlap on busy months (August has many open nights); hide that block if it doesn’t fit — open nights remain visible as dashed cells
 - [ ] **Backend** — standard time + overrides should persist server-side in production
 
 ---
