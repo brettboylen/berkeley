@@ -5,7 +5,7 @@ import { GENRES, ACT_TYPES } from '../data/constants'
 import ContributorNameInput from './ContributorNameInput.vue'
 import BookingAvailabilityCalendar from './BookingAvailabilityCalendar.vue'
 import OpenerFields from './OpenerFields.vue'
-import { parseOpenersFromFields, openersAreValid } from '../utils/openers'
+import { buildOpenersUpdate } from '../utils/openers'
 import { getRecurringEventForDate, formatEventTime } from '../utils/recurringEvents'
 import { formatShowTitle, isSunday } from '../utils/showTitle'
 
@@ -18,6 +18,7 @@ const blockedRecurring = ref(null)
 const form = reactive({
   headliner: '',
   hasOpeners: false,
+  openersLater: false,
   opener1: '',
   opener2: '',
   date: '',
@@ -37,9 +38,7 @@ const previewTitle = computed(() =>
     : ''
 )
 
-const canSubmit = computed(
-  () => !blockedRecurring.value && openersAreValid(form.hasOpeners, form.opener1)
-)
+const canSubmit = computed(() => !blockedRecurring.value)
 
 watch(isSundayDate, (sunday) => {
   if (!sunday) form.psychedelicSunday = false
@@ -79,6 +78,13 @@ function handleSubmit() {
   checkDate()
   if (!canSubmit.value) return
 
+  const openerUpdate = buildOpenersUpdate(
+    form.hasOpeners,
+    form.openersLater,
+    form.opener1,
+    form.opener2
+  )
+
   const result = addBookingRequest({
     headliner: form.headliner,
     date: form.date,
@@ -88,7 +94,8 @@ function handleSubmit() {
     actType: form.actType,
     contributor: form.contributor,
     psychedelicSunday: form.psychedelicSunday,
-    openers: parseOpenersFromFields(form.hasOpeners, form.opener1, form.opener2),
+    openers: openerUpdate.openers,
+    openersPending: openerUpdate.openersPending,
   })
   if (!result) return
 
@@ -100,6 +107,7 @@ function submitAnother() {
   Object.assign(form, {
     headliner: '',
     hasOpeners: false,
+    openersLater: false,
     opener1: '',
     opener2: '',
     date: '',
@@ -173,6 +181,7 @@ function submitAnother() {
           <OpenerFields
             id-prefix="booking"
             v-model:has-openers="form.hasOpeners"
+            v-model:openers-later="form.openersLater"
             v-model:opener1="form.opener1"
             v-model:opener2="form.opener2"
           />

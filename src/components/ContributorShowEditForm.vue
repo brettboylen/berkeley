@@ -3,7 +3,7 @@ import { reactive, computed, watch } from 'vue'
 import { GENRES, ACT_TYPES } from '../data/constants'
 import OpenerFields from './OpenerFields.vue'
 import { formatShowTitle, isSunday } from '../utils/showTitle'
-import { openersToFields, parseOpenersFromFields, openersAreValid } from '../utils/openers'
+import { openersToFields, buildOpenersUpdate } from '../utils/openers'
 
 const props = defineProps({
   show: { type: Object, required: true },
@@ -11,11 +11,12 @@ const props = defineProps({
 
 const emit = defineEmits(['save', 'cancel'])
 
-const openerFields = openersToFields(props.show.openers)
+const openerFields = openersToFields(props.show)
 
 const form = reactive({
   headliner: props.show.headliner,
   hasOpeners: openerFields.hasOpeners,
+  openersLater: openerFields.openersLater,
   opener1: openerFields.opener1,
   opener2: openerFields.opener2,
   time: props.show.time,
@@ -40,8 +41,6 @@ watch(isSundayDate, (sunday) => {
   if (!sunday) form.psychedelicSunday = false
 })
 
-const canSave = computed(() => openersAreValid(form.hasOpeners, form.opener1))
-
 function formatDate(dateStr) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
@@ -52,7 +51,12 @@ function formatDate(dateStr) {
 }
 
 function handleSubmit() {
-  if (!openersAreValid(form.hasOpeners, form.opener1)) return
+  const openerUpdate = buildOpenersUpdate(
+    form.hasOpeners,
+    form.openersLater,
+    form.opener1,
+    form.opener2
+  )
 
   emit('save', {
     headliner: form.headliner,
@@ -61,7 +65,8 @@ function handleSubmit() {
     genre: form.genre,
     actType: form.actType,
     psychedelicSunday: form.psychedelicSunday,
-    openers: parseOpenersFromFields(form.hasOpeners, form.opener1, form.opener2),
+    openers: openerUpdate.openers,
+    openersPending: openerUpdate.openersPending,
   })
 }
 </script>
@@ -83,7 +88,7 @@ function handleSubmit() {
     </div>
 
     <p class="text-sm text-stone-600 font-medium rounded-xl bg-berkeley-yellow/30 border border-berkeley-yellow px-4 py-3">
-      Update lineup or details after confirmation. Openers are optional — many bands play both sets.
+      Update lineup or details after confirmation. Opener names are optional — check “Will update with openers later” if they are not confirmed yet.
       Staff will see changes on the calendar and in promotion tools.
     </p>
 
@@ -103,6 +108,7 @@ function handleSubmit() {
     <OpenerFields
       :id-prefix="`edit-${show.id}`"
       v-model:has-openers="form.hasOpeners"
+      v-model:openers-later="form.openersLater"
       v-model:opener1="form.opener1"
       v-model:opener2="form.opener2"
     />
@@ -173,7 +179,7 @@ function handleSubmit() {
     </div>
 
     <div class="flex flex-wrap gap-3 pt-2">
-      <button type="submit" class="btn-primary" :disabled="!canSave">Save Changes</button>
+      <button type="submit" class="btn-primary">Save Changes</button>
       <button type="button" class="btn-secondary" @click="emit('cancel')">Cancel</button>
     </div>
   </form>

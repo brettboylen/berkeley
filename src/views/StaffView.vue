@@ -1,18 +1,22 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useStaffAuth } from '../composables/useStaffAuth'
 import { useShows } from '../composables/useShows'
 import { useContributors } from '../composables/useContributors'
 import { PROMOTION_FIELDS, STATUSES } from '../data/constants'
 import StatusBadge from '../components/StatusBadge.vue'
 import { formatShowTitle } from '../utils/showTitle'
+import { formatOpenersLabel } from '../utils/openers'
 import { downloadIcsFile } from '../utils/calendarExport'
+import StaffWallCalendar from '../components/StaffWallCalendar.vue'
 import {
   getContributorLastActivity,
   isContributorInactive,
 } from '../utils/contributorActivity'
 
 const { isAuthenticated, login, logout } = useStaffAuth()
+const router = useRouter()
 const {
   shows,
   requests,
@@ -29,6 +33,20 @@ const { contributors, removeContributor, removeContributors } = useContributors(
 const password = ref('')
 const loginError = ref('')
 const actionMessage = ref('')
+const activeTab = ref('bookings')
+
+const tabs = [
+  { id: 'bookings', label: 'Bookings' },
+  { id: 'promotion', label: 'Promotion' },
+  { id: 'shows', label: 'All Shows' },
+  { id: 'contributors', label: 'Contributors' },
+  { id: 'facebook', label: 'Facebook Event Kits' },
+  { id: 'export', label: 'Print & Export' },
+]
+
+watch(activeTab, () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+})
 
 const promotableShows = computed(() =>
   [...shows.value]
@@ -56,6 +74,11 @@ const contributorRows = computed(() =>
 const inactiveContributors = computed(() =>
   contributorRows.value.filter((row) => row.inactive)
 )
+
+function handleLogout() {
+  logout()
+  router.push('/')
+}
 
 function tryLogin() {
   loginError.value = ''
@@ -110,10 +133,6 @@ function exportToGoogleCalendar() {
   actionMessage.value = `Downloaded ${promotableShows.value.length} show(s) as berkeley-shows.ics — import via Google Calendar → Settings → Import & export.`
 }
 
-function scrollToSection(id) {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
 function formatLastActivity(date) {
   if (!date) return 'No submissions on record'
   return date.toLocaleDateString('en-US', {
@@ -157,6 +176,12 @@ function handleRemoveInactiveContributors() {
       </div>
 
       <form class="panel p-6 space-y-4" @submit.prevent="tryLogin">
+        <RouterLink
+          to="/"
+          class="inline-flex items-center gap-1 text-sm font-heading font-bold uppercase tracking-wide text-berkeley-red hover:text-berkeley-red-dark"
+        >
+          ← Back to home
+        </RouterLink>
         <div>
           <label for="staff-password" class="block text-sm font-heading font-bold uppercase tracking-wide text-stone-700 mb-1.5">
             Password
@@ -176,15 +201,14 @@ function handleRemoveInactiveContributors() {
     </div>
 
     <div v-else>
-      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
         <div>
           <h2 class="section-title">Staff View</h2>
           <p class="text-stone-600 mt-2 font-medium max-w-2xl">
-            Confirm held dates, review booking requests, and track promotion steps.
-            Use the quick links below to jump to Facebook Event Kits or Google Calendar export at the bottom of the page.
+            Confirm held dates, review booking requests, track promotion, and export calendars.
           </p>
         </div>
-        <button type="button" class="btn-secondary shrink-0" @click="logout">Sign out</button>
+        <button type="button" class="btn-secondary shrink-0" @click="handleLogout">Sign out</button>
       </div>
 
       <p
@@ -194,31 +218,31 @@ function handleRemoveInactiveContributors() {
         {{ actionMessage }}
       </p>
 
-      <nav
-        class="sticky top-[4.25rem] sm:top-[4.75rem] z-40 -mx-4 px-4 py-3 mb-8 bg-stone-100/95 backdrop-blur-sm border-y-2 border-stone-900/10 flex flex-wrap gap-2"
-        aria-label="Staff quick links"
-      >
+      <div class="flex flex-wrap rounded-full border-2 border-stone-900/10 overflow-hidden bg-white shadow-sm mb-8 w-fit max-w-full">
         <button
+          v-for="tab in tabs"
+          :key="tab.id"
           type="button"
-          class="btn-secondary !text-xs sm:!text-sm !px-4 !py-2"
-          @click="scrollToSection('facebook-event-kits')"
+          class="px-4 sm:px-5 py-2 text-xs sm:text-sm font-heading font-semibold uppercase tracking-wide transition-colors border-l-2 border-stone-900/10 first:border-l-0"
+          :class="activeTab === tab.id ? 'bg-berkeley-red text-white' : 'text-stone-600 hover:bg-stone-50'"
+          @click="activeTab = tab.id"
         >
-          Facebook Event Kits ↓
+          {{ tab.label }}
+          <span
+            v-if="tab.id === 'bookings' && (heldShows.length || staffPendingRequests.length)"
+            class="ml-1 opacity-90"
+          >
+            ({{ heldShows.length + staffPendingRequests.length }})
+          </span>
         </button>
-        <button
-          type="button"
-          class="btn-secondary !text-xs sm:!text-sm !px-4 !py-2"
-          @click="scrollToSection('calendar-export')"
-        >
-          Google Calendar Export ↓
-        </button>
-      </nav>
+      </div>
 
-      <section class="mb-10">
-        <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-4">
-          Held Dates
-          <span class="text-base font-heading text-stone-500">({{ heldShows.length }})</span>
-        </h3>
+      <section v-if="activeTab === 'bookings'">
+        <div class="mb-10">
+          <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-4">
+            Held Dates
+            <span class="text-base font-heading text-stone-500">({{ heldShows.length }})</span>
+          </h3>
 
         <div v-if="heldShows.length" class="space-y-4">
           <article
@@ -238,8 +262,8 @@ function handleRemoveInactiveContributors() {
                 <h4 class="font-display text-2xl uppercase tracking-wide text-stone-900">
                   {{ formatShowTitle(show) }}
                 </h4>
-                <p v-if="show.openers?.length" class="text-sm text-stone-500 font-medium mt-1">
-                  with {{ show.openers.join(', ') }}
+                <p v-if="formatOpenersLabel(show)" class="text-sm text-stone-500 font-medium mt-1">
+                  {{ formatOpenersLabel(show) }}
                 </p>
 
                 <dl class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
@@ -286,142 +310,76 @@ function handleRemoveInactiveContributors() {
         </div>
 
         <p v-else class="panel p-6 text-sm text-stone-600 font-medium">
-          No held dates right now. Use the All Shows table below to set a date to <strong>Held</strong>.
+          No held dates right now. Use the <strong>All Shows</strong> tab to set a date to <strong>Held</strong>.
         </p>
-      </section>
+        </div>
 
-      <section v-if="staffPendingRequests.length" class="mb-10">
-        <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-4">
-          Pending Requests
-          <span class="text-base font-heading text-berkeley-red">({{ staffPendingRequests.length }})</span>
-        </h3>
+        <div v-if="staffPendingRequests.length" class="mt-10">
+          <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-4">
+            Pending Requests
+            <span class="text-base font-heading text-berkeley-red">({{ staffPendingRequests.length }})</span>
+          </h3>
 
-        <div class="space-y-4">
-          <div v-for="req in staffPendingRequests" :key="req.id" class="panel p-5 sm:p-6">
-            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div>
-                <h4 class="font-display text-2xl uppercase tracking-wide">{{ formatShowTitle(req) }}</h4>
-                <p v-if="req.openers?.length" class="text-sm text-stone-500 font-medium">
-                  with {{ req.openers.join(', ') }}
-                </p>
-                <dl class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-                  <div>
-                    <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Date</dt>
-                    <dd class="font-semibold">{{ formatDate(req.date) }} at {{ req.time }}</dd>
-                  </div>
-                  <div>
-                    <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Genre</dt>
-                    <dd class="font-semibold">{{ req.genre }}</dd>
-                  </div>
-                  <div>
-                    <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Act type</dt>
-                    <dd class="font-semibold">{{ req.actType }}</dd>
-                  </div>
-                  <div class="col-span-2">
-                    <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Submitted by</dt>
-                    <dd class="font-semibold">{{ req.contributor }}</dd>
-                  </div>
-                </dl>
-                <p class="mt-2 text-sm text-stone-600">{{ req.description }}</p>
-              </div>
+          <div class="space-y-4">
+            <div v-for="req in staffPendingRequests" :key="req.id" class="panel p-5 sm:p-6">
+              <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div>
+                  <h4 class="font-display text-2xl uppercase tracking-wide">{{ formatShowTitle(req) }}</h4>
+                  <p v-if="formatOpenersLabel(req)" class="text-sm text-stone-500 font-medium">
+                    {{ formatOpenersLabel(req) }}
+                  </p>
+                  <dl class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+                    <div>
+                      <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Date</dt>
+                      <dd class="font-semibold">{{ formatDate(req.date) }} at {{ req.time }}</dd>
+                    </div>
+                    <div>
+                      <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Genre</dt>
+                      <dd class="font-semibold">{{ req.genre }}</dd>
+                    </div>
+                    <div>
+                      <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Act type</dt>
+                      <dd class="font-semibold">{{ req.actType }}</dd>
+                    </div>
+                    <div class="col-span-2">
+                      <dt class="font-heading text-xs uppercase tracking-wide text-stone-400">Submitted by</dt>
+                      <dd class="font-semibold">{{ req.contributor }}</dd>
+                    </div>
+                  </dl>
+                  <p class="mt-2 text-sm text-stone-600">{{ req.description }}</p>
+                </div>
 
-              <div class="flex gap-2 shrink-0">
-                <button type="button" class="btn-secondary !text-sm !px-4 !py-2" @click="approveRequest(req.id)">
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  class="px-4 py-2 rounded-full border-2 border-stone-300 text-stone-700 text-sm font-heading font-bold uppercase hover:bg-stone-50 transition-colors"
-                  @click="rejectRequest(req.id)"
-                >
-                  Reject
-                </button>
+                <div class="flex gap-2 shrink-0">
+                  <button type="button" class="btn-secondary !text-sm !px-4 !py-2" @click="approveRequest(req.id)">
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    class="px-4 py-2 rounded-full border-2 border-stone-300 text-stone-700 text-sm font-heading font-bold uppercase hover:bg-stone-50 transition-colors"
+                    @click="rejectRequest(req.id)"
+                  >
+                    Reject
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </section>
 
-      <section class="mb-10 panel p-5 sm:p-6 border-2 border-stone-300/80 bg-white">
-        <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-1">Edit Contributors</h3>
-        <p class="text-sm text-stone-600 font-medium mb-4 max-w-2xl">
-          Manage the name suggestions shown on booking forms. Removing a name cleans the list — contributors can still type any name when submitting.
-          New names are added automatically when someone submits a booking request.
-        </p>
-
-        <div
-          v-if="inactiveContributors.length"
-          class="rounded-xl border-2 border-berkeley-yellow bg-berkeley-yellow/30 px-4 py-4 mb-5"
-        >
-          <p class="font-heading font-bold uppercase tracking-wide text-sm text-stone-900 mb-2">
-            {{ inactiveContributors.length }} contributor{{ inactiveContributors.length === 1 ? '' : 's' }} inactive 1+ month
-          </p>
-          <p class="text-sm text-stone-700 mb-3">
-            {{
-              inactiveContributors.map((row) => row.name).join(', ')
-            }}
-            — no booking requests or shows in the last month.
-          </p>
-          <button
-            type="button"
-            class="btn-primary !text-sm !bg-stone-900 hover:!bg-stone-800"
-            @click="handleRemoveInactiveContributors"
-          >
-            Remove all inactive
-          </button>
-        </div>
-
-        <div v-if="contributorRows.length" class="space-y-2">
-          <div
-            v-for="row in contributorRows"
-            :key="row.name"
-            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 panel p-3"
-            :class="row.inactive ? 'border-l-4 border-berkeley-yellow' : ''"
-          >
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <p class="font-heading font-bold uppercase tracking-wide text-stone-900">{{ row.name }}</p>
-                <span
-                  v-if="row.inactive"
-                  class="text-[10px] font-heading font-bold uppercase tracking-wide text-berkeley-red bg-berkeley-red/10 px-2 py-0.5 rounded-full"
-                >
-                  Inactive 1+ mo
-                </span>
-                <span
-                  v-else
-                  class="text-[10px] font-heading font-bold uppercase tracking-wide text-berkeley-green-dark bg-berkeley-green/10 px-2 py-0.5 rounded-full"
-                >
-                  Active
-                </span>
-              </div>
-              <p class="text-sm text-stone-500 mt-1">
-                Last activity: {{ formatLastActivity(row.lastActivity) }}
-              </p>
-            </div>
-            <button
-              type="button"
-              class="btn-secondary !text-xs !px-4 !py-2 !text-berkeley-red !border-berkeley-red/30 shrink-0 self-start sm:self-center"
-              @click="handleRemoveContributor(row.name)"
-            >
-              Remove
-            </button>
-          </div>
-        </div>
-
-        <p v-else class="text-sm text-stone-500 font-medium">
-          No contributors on the suggestion list. Names are added when booking requests are submitted.
+        <p v-else class="panel p-6 mt-10 text-sm text-stone-600 font-medium">
+          No pending booking requests.
         </p>
       </section>
 
-      <section class="mb-10">
+      <section v-else-if="activeTab === 'promotion'">
         <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-1">Promotion Tracker</h3>
         <p class="text-sm text-stone-600 font-medium mb-4 max-w-2xl">
           Check off promotion steps as you go. To create a Facebook event, use the
-          <strong>Open Facebook Event Kit</strong> buttons in each row below or jump to
-          <button type="button" class="text-berkeley-red font-semibold underline hover:text-berkeley-red-dark" @click="scrollToSection('facebook-event-kits')">
+          <strong>Open Facebook Event Kit</strong> buttons below or switch to the
+          <button type="button" class="text-berkeley-red font-semibold underline hover:text-berkeley-red-dark" @click="activeTab = 'facebook'">
             Facebook Event Kits
           </button>
-          at the bottom of the page.
+          tab.
         </p>
 
         <div class="hidden lg:block panel overflow-x-auto">
@@ -536,7 +494,7 @@ function handleRemoveInactiveContributors() {
         </p>
       </section>
 
-      <section class="mb-10">
+      <section v-else-if="activeTab === 'shows'">
         <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-4">All Shows</h3>
         <div class="panel overflow-x-auto">
           <table class="w-full text-sm">
@@ -574,9 +532,80 @@ function handleRemoveInactiveContributors() {
         </div>
       </section>
 
+      <section v-else-if="activeTab === 'contributors'" class="panel p-5 sm:p-6 border-2 border-stone-300/80 bg-white">
+        <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-1">Edit Contributors</h3>
+        <p class="text-sm text-stone-600 font-medium mb-4 max-w-2xl">
+          Manage the name suggestions shown on booking forms. Removing a name cleans the list — contributors can still type any name when submitting.
+          New names are added automatically when someone submits a booking request.
+        </p>
+
+        <div
+          v-if="inactiveContributors.length"
+          class="rounded-xl border-2 border-berkeley-yellow bg-berkeley-yellow/30 px-4 py-4 mb-5"
+        >
+          <p class="font-heading font-bold uppercase tracking-wide text-sm text-stone-900 mb-2">
+            {{ inactiveContributors.length }} contributor{{ inactiveContributors.length === 1 ? '' : 's' }} inactive 1+ month
+          </p>
+          <p class="text-sm text-stone-700 mb-3">
+            {{
+              inactiveContributors.map((row) => row.name).join(', ')
+            }}
+            — no booking requests or shows in the last month.
+          </p>
+          <button
+            type="button"
+            class="btn-primary !text-sm !bg-stone-900 hover:!bg-stone-800"
+            @click="handleRemoveInactiveContributors"
+          >
+            Remove all inactive
+          </button>
+        </div>
+
+        <div v-if="contributorRows.length" class="space-y-2">
+          <div
+            v-for="row in contributorRows"
+            :key="row.name"
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 panel p-3"
+            :class="row.inactive ? 'border-l-4 border-berkeley-yellow' : ''"
+          >
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="font-heading font-bold uppercase tracking-wide text-stone-900">{{ row.name }}</p>
+                <span
+                  v-if="row.inactive"
+                  class="text-[10px] font-heading font-bold uppercase tracking-wide text-berkeley-red bg-berkeley-red/10 px-2 py-0.5 rounded-full"
+                >
+                  Inactive 1+ mo
+                </span>
+                <span
+                  v-else
+                  class="text-[10px] font-heading font-bold uppercase tracking-wide text-berkeley-green-dark bg-berkeley-green/10 px-2 py-0.5 rounded-full"
+                >
+                  Active
+                </span>
+              </div>
+              <p class="text-sm text-stone-500 mt-1">
+                Last activity: {{ formatLastActivity(row.lastActivity) }}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-secondary !text-xs !px-4 !py-2 !text-berkeley-red !border-berkeley-red/30 shrink-0 self-start sm:self-center"
+              @click="handleRemoveContributor(row.name)"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+
+        <p v-else class="text-sm text-stone-500 font-medium">
+          No contributors on the suggestion list. Names are added when booking requests are submitted.
+        </p>
+      </section>
+
       <section
-        id="facebook-event-kits"
-        class="mb-10 panel p-5 sm:p-6 border-2 border-berkeley-red/30 bg-berkeley-red/5 scroll-mt-28 sm:scroll-mt-32"
+        v-else-if="activeTab === 'facebook'"
+        class="panel p-5 sm:p-6 border-2 border-berkeley-red/30 bg-berkeley-red/5"
       >
         <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-1">
           Facebook Event Kits
@@ -629,10 +658,8 @@ function handleRemoveInactiveContributors() {
         </p>
       </section>
 
-      <section
-        id="calendar-export"
-        class="mb-10 panel p-5 sm:p-6 border-2 border-berkeley-green/30 bg-berkeley-green/5 scroll-mt-28 sm:scroll-mt-32"
-      >
+      <section v-else-if="activeTab === 'export'" class="space-y-10">
+        <div class="panel p-5 sm:p-6 border-2 border-berkeley-green/30 bg-berkeley-green/5">
         <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-2">Google Calendar Export</h3>
         <p class="text-sm text-stone-600 font-medium mb-4 max-w-2xl">
           Download all confirmed and promoted shows as a single file for Google Calendar.
@@ -649,6 +676,9 @@ function handleRemoveInactiveContributors() {
           In Google Calendar: Settings → Import &amp; export → Import → select
           <strong>berkeley-shows.ics</strong>.
         </p>
+        </div>
+
+        <StaffWallCalendar :visible="activeTab === 'export'" />
       </section>
     </div>
   </div>

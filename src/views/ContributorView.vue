@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import { useShows } from '../composables/useShows'
 import ShowCalendarGrid from '../components/ShowCalendarGrid.vue'
@@ -11,9 +12,12 @@ import PosterUploadModal from '../components/PosterUploadModal.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { formatShowTitle } from '../utils/showTitle'
 
+const CONTRIBUTOR_EDITABLE_STATUSES = ['confirmed', 'promoted', 'held']
 const CONTRIBUTOR_NAME_KEY = 'berkeley-contributor-name'
 
 const { isAuthenticated, login, logout } = useAuth()
+const router = useRouter()
+const route = useRoute()
 const {
   pendingRequests,
   getContributorItemsForDate,
@@ -96,6 +100,48 @@ watch(activeTab, (tab) => {
   }
 })
 
+function applyContributorRouteState() {
+  const tab = route.query.tab
+  const editId = route.query.edit
+
+  if (typeof tab === 'string' && tabs.some((t) => t.id === tab)) {
+    activeTab.value = tab
+  }
+
+  if (typeof editId === 'string' && editId) {
+    activeTab.value = 'manage'
+    const show = getShowById(editId)
+    if (show?.contributor && !trimmedContributorName.value) {
+      contributorName.value = show.contributor
+    }
+    editingShowId.value = editId
+    cancelingShowId.value = ''
+    manageMessage.value = ''
+    manageError.value = ''
+    nextTick(() => {
+      document.getElementById(`manage-show-${editId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+  }
+}
+
+watch(
+  () => [route.query.tab, route.query.edit],
+  applyContributorRouteState,
+  { immediate: true }
+)
+
+function contributorEditLink(showId) {
+  return { path: '/contributor', query: { tab: 'manage', edit: String(showId) } }
+}
+
+function handleLogout() {
+  logout()
+  router.push('/')
+}
+
 function tryLogin() {
   loginError.value = ''
   if (!login(password.value)) {
@@ -122,8 +168,11 @@ function contributorLabel(entry) {
 }
 
 function contributorLink(entry) {
-  if (entry.kind === 'show') return `/show/${entry.item.id}`
-  return null
+  if (entry.kind !== 'show') return null
+  if (CONTRIBUTOR_EDITABLE_STATUSES.includes(entry.item.status)) {
+    return contributorEditLink(entry.item.id)
+  }
+  return `/show/${entry.item.id}`
 }
 
 function formatDate(dateStr) {
@@ -155,10 +204,13 @@ function startEdit(showId) {
   manageMessage.value = ''
   manageError.value = ''
   editingShowId.value = showId
+  activeTab.value = 'manage'
+  router.replace(contributorEditLink(showId))
 }
 
 function closeEdit() {
   editingShowId.value = ''
+  router.replace({ path: '/contributor', query: { tab: 'manage' } })
 }
 
 function handleSaveEdit(updates) {
@@ -171,6 +223,7 @@ function handleSaveEdit(updates) {
   }
   manageMessage.value = 'Show updated — changes appear on the calendar immediately.'
   editingShowId.value = ''
+  router.replace({ path: '/contributor', query: { tab: 'manage' } })
 }
 
 function startCancel(showId) {
@@ -204,7 +257,9 @@ function confirmCancelShow() {
 }
 
 function formatOpeners(show) {
-  return show.openers?.length ? show.openers.join(', ') : 'No openers — playing both sets'
+  if (show.openersPending) return 'Will update with openers later.'
+  if (show.openers?.length) return show.openers.join(', ')
+  return 'No openers — playing both sets'
 }
 
 function canUseFacebookKit(show) {
@@ -233,6 +288,12 @@ function canUseFacebookKit(show) {
       </div>
 
       <form class="panel p-6 sm:p-8 space-y-4" @submit.prevent="tryLogin">
+        <RouterLink
+          to="/"
+          class="inline-flex items-center gap-1 text-sm font-heading font-bold uppercase tracking-wide text-berkeley-red hover:text-berkeley-red-dark"
+        >
+          ← Back to home
+        </RouterLink>
         <div>
           <label for="password" class="block text-sm font-heading font-bold uppercase tracking-wide text-stone-700 mb-1.5">
             Password
@@ -260,7 +321,7 @@ function canUseFacebookKit(show) {
             Use <strong>Facebook Event Kits</strong> to copy show details into Facebook or other social media posts.
           </p>
         </div>
-        <button type="button" class="text-sm font-heading uppercase tracking-wide text-stone-500 hover:text-berkeley-red" @click="logout">
+        <button type="button" class="text-sm font-heading uppercase tracking-wide text-stone-500 hover:text-berkeley-red" @click="handleLogout">
           Sign out
         </button>
       </div>
@@ -340,6 +401,7 @@ function canUseFacebookKit(show) {
           <div v-else-if="trimmedContributorName" class="space-y-4">
             <div
               v-for="show in manageableShows"
+              :id="`manage-show-${show.id}`"
               :key="show.id"
               class="panel p-4"
               :class="{ 'ring-2 ring-berkeley-green/40': editingShowId === show.id }"

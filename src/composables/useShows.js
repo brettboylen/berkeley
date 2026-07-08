@@ -11,7 +11,7 @@ import { normalizeOpeners } from '../utils/openers'
 const shows = ref(structuredClone(initialShows))
 const requests = ref(structuredClone(initialRequests))
 
-let nextShowId = 10
+let nextShowId = 11
 let nextRequestId = 10
 
 const PUBLIC_STATUSES = ['confirmed', 'promoted']
@@ -138,14 +138,19 @@ export function useShows() {
     const openers = updates.openers !== undefined
       ? normalizeOpeners(updates.openers)
       : show.openers
+    const openersPending = updates.openersPending !== undefined
+      ? !!updates.openersPending
+      : show.openersPending
 
     const lineupChanged =
       (updates.headliner?.trim() && updates.headliner.trim() !== show.headliner) ||
       (updates.openers !== undefined &&
-        JSON.stringify(openers) !== JSON.stringify(show.openers))
+        JSON.stringify(openers) !== JSON.stringify(show.openers)) ||
+      (updates.openersPending !== undefined && openersPending !== !!show.openersPending)
 
     show.headliner = updates.headliner?.trim() || show.headliner
     show.openers = openers
+    show.openersPending = openersPending
     show.time = updates.time ?? show.time
     show.description = updates.description?.trim() || show.description
     show.genre = updates.genre ?? show.genre
@@ -199,6 +204,13 @@ export function useShows() {
     if (show) show.status = status
   }
 
+  function updateShowTime(showId, time) {
+    const show = shows.value.find((s) => s.id === showId)
+    if (!show || !time) return false
+    show.time = time
+    return true
+  }
+
   function confirmHeldShow(showId) {
     const show = shows.value.find((s) => s.id === showId)
     if (!show || show.status !== 'held') return false
@@ -221,6 +233,7 @@ export function useShows() {
       ...form,
       contributor: form.contributor?.trim() ?? '',
       openers: normalizeOpeners(form.openers),
+      openersPending: !!form.openersPending,
       psychedelicSunday: isSunday(form.date) && !!form.psychedelicSunday,
       submittedAt: new Date().toISOString(),
       reviewStatus: 'pending',
@@ -238,6 +251,7 @@ export function useShows() {
       id: String(nextShowId++),
       headliner: req.headliner,
       openers: req.openers,
+      openersPending: !!req.openersPending,
       date: req.date,
       time: req.time,
       description: req.description,
@@ -314,6 +328,7 @@ export function useShows() {
     cancelContributorShow,
     updatePromotion,
     updateShowStatus,
+    updateShowTime,
     confirmHeldShow,
     releaseHeldShow,
     addBookingRequest,

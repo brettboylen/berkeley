@@ -18,6 +18,7 @@ See also: [ROADMAP-TODO.md](./ROADMAP-TODO.md) for product phases and questions 
 | Contributor auth | Shared password in `sessionStorage` | Same, or per-user accounts later |
 | Contributor name list | `localStorage` (`berkeley-contributor-registry`) | Server-stored suggestion list |
 | Calendar export | Client download of `.ics` blob | Hosted `GET /calendar.ics` subscription feed |
+| Wall calendar PDF | Client-side html2canvas + jsPDF; standard time in `localStorage` | Optional server PDF generation; persist `standardShowTime` + show times in DB |
 | Promotion updates | Direct mutation in composable | API with staff authorization |
 | Contributor edits/cancels | Client-side only, name string match | API validates contributor identity + ownership |
 | IDs | Incrementing counters in memory | DB-generated UUIDs or serial IDs |
@@ -36,6 +37,14 @@ Poster upload & replace UX is implemented in the Vue prototype. Backend work bel
 - [ ] **My Shows** — optional CTA after lineup edit linking to poster replace (badge exists on poster tab only today)
 - [ ] **Staff poster replace** — staff UI not built yet (contributor-only in prototype)
 - [ ] **API + S3** — all poster data still in-memory; see Phase 1.4, 2.1
+
+**Wall calendar print (Staff View)**
+
+- [x] **`StaffWallCalendar.vue`** — two landscape letter months, separate preview + PDF per month
+- [x] **`WallCalendarSheet.vue`** — seasonal styling, Berkeley Cafe sidebar, color-coded public shows + open nights
+- [x] **Show times** — per-date time on poster; standard time + per-show staff overrides (`useWallCalendarSettings`, `updateShowTime`)
+- [x] **Download both** — one-click to save two PDFs; print per month
+- [ ] **Backend** — standard time + overrides should persist server-side in production
 
 ---
 
@@ -98,7 +107,7 @@ Poster upload & replace UX is implemented in the Vue prototype. Backend work bel
 ### 1.6 Business rules (enforce on server)
 
 - [ ] Mon–Wed blocked for live music (house events: Bingo, Karaoke, Open Mic) — mirror `recurringEvents.js`
-- [ ] Openers: 0 if `hasOpeners` false; if true, opener 1 required, max 2
+- [ ] Openers: 0 if `hasOpeners` false; if true, names optional; `openersPending` when contributor will add names later (max 2)
 - [ ] Psychedelic Sunday flag only allowed on Sundays
 - [ ] Date changes: contributor cannot change date (staff only) — match current UI
 - [ ] Promotion auto-status: all promotion fields true → `promoted`; partial revert → `confirmed`

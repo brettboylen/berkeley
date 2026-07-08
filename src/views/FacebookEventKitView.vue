@@ -60,6 +60,12 @@ function downloadPoster() {
         </p>
       </div>
       <form class="panel p-6 space-y-4" @submit.prevent="tryLogin">
+        <RouterLink
+          to="/"
+          class="inline-flex items-center gap-1 text-sm font-heading font-bold uppercase tracking-wide text-berkeley-red hover:text-berkeley-red-dark"
+        >
+          ← Back to home
+        </RouterLink>
         <input v-model="password" type="password" required class="input-field" placeholder="Contributor or staff password" />
         <p v-if="loginError" class="text-sm text-berkeley-red font-medium">{{ loginError }}</p>
         <button type="submit" class="btn-primary w-full">Enter</button>

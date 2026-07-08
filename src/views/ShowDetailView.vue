@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useShows } from '../composables/useShows'
+import { useAuth } from '../composables/useAuth'
 import { PROMOTION_FIELDS } from '../data/constants'
 import StatusBadge from '../components/StatusBadge.vue'
 import ShowPoster from '../components/ShowPoster.vue'
@@ -9,8 +10,24 @@ import { formatShowTitle } from '../utils/showTitle'
 
 const route = useRoute()
 const { getShowById } = useShows()
+const { isAuthenticated } = useAuth()
 
 const show = computed(() => getShowById(route.params.id))
+
+const canContributorEdit = computed(() => {
+  const s = show.value
+  return (
+    isAuthenticated.value &&
+    s &&
+    ['confirmed', 'promoted', 'held'].includes(s.status)
+  )
+})
+
+const contributorEditTo = computed(() =>
+  show.value
+    ? { path: '/contributor', query: { tab: 'manage', edit: String(show.value.id) } }
+    : '/contributor'
+)
 
 function formatTime(time) {
   const [h, m] = time.split(':')
@@ -52,6 +69,9 @@ function formatDate(dateStr) {
           <p v-if="show.openers?.length" class="text-lg text-white/90 mt-1 font-heading uppercase tracking-wide">
             with {{ show.openers.join(', ') }}
           </p>
+          <p v-else-if="show.openersPending" class="text-lg text-white/90 mt-1 font-heading uppercase tracking-wide italic">
+            Openers TBD
+          </p>
         </div>
       </div>
 
@@ -90,8 +110,33 @@ function formatDate(dateStr) {
         </div>
 
         <div
+          v-if="canContributorEdit"
+          class="mt-8 rounded-xl border-2 border-berkeley-green/40 bg-berkeley-green/10 p-5 sm:p-6"
+        >
+          <p class="font-heading text-xs uppercase tracking-widest text-berkeley-green-dark font-bold mb-1">Contributor tools</p>
+          <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-2">Edit this show</h3>
+          <p class="text-sm text-stone-600 mb-4">
+            Update openers, lineup, and show details after confirmation.
+          </p>
+          <div class="flex flex-col sm:flex-row flex-wrap gap-3">
+            <RouterLink
+              :to="contributorEditTo"
+              class="btn-primary !text-sm text-center"
+            >
+              Edit show (add openers)
+            </RouterLink>
+            <RouterLink
+              to="/contributor"
+              class="btn-secondary !text-sm text-center"
+            >
+              Contributor View
+            </RouterLink>
+          </div>
+        </div>
+
+        <div
           v-if="['confirmed', 'promoted'].includes(show.status)"
-          class="mt-8 rounded-xl border-2 border-berkeley-red/30 bg-berkeley-red/5 p-5 sm:p-6"
+          class="mt-6 rounded-xl border-2 border-berkeley-red/30 bg-berkeley-red/5 p-5 sm:p-6"
         >
           <p class="font-heading text-xs uppercase tracking-widest text-berkeley-red font-bold mb-1">Staff tools</p>
           <h3 class="font-display text-2xl uppercase tracking-wide text-stone-900 mb-2">Facebook Event Kit</h3>
